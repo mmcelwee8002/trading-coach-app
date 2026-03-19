@@ -1,44 +1,178 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, TextInput, } from 'react-native';
+import { useEffect, useState } from 'react';
 
 export default function TradingScreen() {
   const [balance, setBalance] = useState(10000);
   const [shares, setShares] = useState(0);
+  const [avgPrice, setAvgPrice] = useState(0);
 
-  const stockPrice = 150;
+  const [symbol, setSymbol] = useState('AAPL');
+  const [stockPrice, setStockPrice] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const apiKey = process.env.EXPO_PUBLIC_ALPHA_VANTAGE_API_KEY;
+
+const stockMap: Record<string, string> = {
+  tesla: 'TSLA',
+  microsoft: 'MSFT',
+  apple: 'AAPL',
+  amazon: 'AMZN',
+  nvidia: 'NVDA',
+  google: 'GOOGL',
+  alphabet: 'GOOGL',
+  meta: 'META',
+};
+
+  const fetchStockPrice = async () => {
+    console.log('FUNCTION RUNNING');
+
+    if (!apiKey) {
+      setError('Missing API key. Check your .env file.');
+      setLoading(false);
+      return;
+    }
+
+    const userInput = symbol.trim().toLowerCase();
+  const lookupSymbol = stockMap[userInput] || symbol.trim().toUpperCase();
+
+
+    try {
+      setLoading(true);
+      setError('');
+
+      const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${lookupSymbol}&apikey=${apiKey}`;
+
+      const response = await fetch(url);
+      const data = await response.json();
+
+      console.log('Alpha Vantage response:', data);
+
+      if (data['Error Message']) {
+        throw new Error('Invalid API request or symbol.');
+      }
+
+      if (data['Note']) {
+        throw new Error('API limit reached. Try again later.');
+      }
+
+      if (data['Information']) {
+        throw new Error(data['Information']);
+      }
+
+      const quote = data['Global Quote'];
+      const priceString = quote?.['05. price'];
+      setSymbol(lookupSymbol);
+
+      if (!quote || !priceString) {
+        throw new Error('No price data returned.');
+      }
+
+      const parsedPrice = Number(priceString);
+
+      if (Number.isNaN(parsedPrice)) {
+        throw new Error('Price could not be parsed.');
+      }
+
+      setStockPrice(parsedPrice);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Something went wrong fetching stock data.';
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  //useEffect(() => {
+   // fetchStockPrice();
+  //}, []);
 
   const handleBuy = () => {
+    if (stockPrice === null) return;
+
     if (balance >= stockPrice) {
+      const totalCost = avgPrice * shares + stockPrice;
+      const newShares = shares + 1;
+
+      setShares(newShares);
+      setAvgPrice(totalCost / newShares);
       setBalance(balance - stockPrice);
-      setShares(shares + 1);
     }
   };
 
   const handleSell = () => {
+    if (stockPrice === null) return;
+
     if (shares > 0) {
+      const newShares = shares - 1;
+
+      setShares(newShares);
       setBalance(balance + stockPrice);
-      setShares(shares - 1);
+
+      if (newShares === 0) {
+        setAvgPrice(0);
+      }
     }
   };
+
+  const profitLoss = stockPrice !== null ? (stockPrice - avgPrice) * shares : 0;
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Trading Simulator</Text>
 
-      <Text style={styles.balance}>Balance: ${balance}</Text>
-      <Text style={styles.shares}>Shares Owned: {shares}</Text>
+      <Text style={styles.balance}>Balance: ${balance.toFixed(2)}</Text>
+      <Text style={styles.shares}>Shares: {shares}</Text>
+      <Text style={styles.avg}>Avg Price: ${avgPrice.toFixed(2)}</Text>
+
+      <Text
+        style={[
+          styles.pnl,
+          { color: profitLoss >= 0 ? '#22c55e' : '#ef4444' },
+        ]}
+      >
+        P/L: ${profitLoss.toFixed(2)}
+      </Text>
+<TextInput
+  style={[styles.input, {color: 'white'}]}
+  value={symbol}
+  onChangeText={setSymbol}
+  placeholder="Enter symbol"
+  placeholderTextColor="#888"
+  autoCapitalize="characters"
+/>
+
+<TouchableOpacity
+  style={styles.button}
+  onPress={fetchStockPrice}
+>
+  <Text style={styles.buttonText}>Get Price</Text>
+</TouchableOpacity>
+
 
       <View style={styles.stockBox}>
-        <Text style={styles.stock}>AAPL</Text>
-        <Text style={styles.price}>${stockPrice}</Text>
+        <Text style={styles.stock}>{symbol}</Text>
+
+        {loading ? (
+          <ActivityIndicator />
+        ) : error ? (
+          <Text style={styles.error}>{error}</Text>
+        ) : (
+          <Text style={styles.price}>${stockPrice?.toFixed(2)}</Text>
+        )}
+
+        <TouchableOpacity style={styles.refreshButton} onPress={fetchStockPrice}>
+          <Text style={styles.refreshText}>Refresh Price</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.buyButton} onPress={handleBuy}>
+        <TouchableOpacity style={styles.buyButton} onPress={handleBuy} disabled={stockPrice === null}>
           <Text style={styles.buttonText}>Buy</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.sellButton} onPress={handleSell}>
+        <TouchableOpacity style={styles.sellButton} onPress={handleSell} disabled={stockPrice === null}>
           <Text style={styles.buttonText}>Sell</Text>
         </TouchableOpacity>
       </View>
@@ -63,12 +197,20 @@ const styles = StyleSheet.create({
   balance: {
     color: '#22c55e',
     fontSize: 20,
-    marginBottom: 10,
   },
   shares: {
     color: '#e5e7eb',
     fontSize: 18,
-    marginBottom: 30,
+  },
+  avg: {
+    color: '#9ca3af',
+    fontSize: 16,
+    marginBottom: 10,
+  },
+  pnl: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 20,
   },
   stockBox: {
     backgroundColor: '#111827',
@@ -82,11 +224,29 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 22,
     fontWeight: '600',
+    marginBottom: 8,
   },
   price: {
     color: '#9ca3af',
     fontSize: 18,
-    marginTop: 5,
+    marginBottom: 12,
+  },
+  error: {
+    color: '#ef4444',
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  refreshButton: {
+    backgroundColor: '#2563eb',
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  refreshText: {
+    color: 'white',
+    fontWeight: '600',
   },
   buttonRow: {
     flexDirection: 'row',
@@ -109,4 +269,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  input: {
+  borderWidth: 1,
+  borderColor: '#ccc',
+  borderRadius: 8,
+  padding: 12,
+  marginTop: 10,
+  color: 'white',
+},
+
+button: {
+  backgroundColor: '#007AFF',
+  padding: 14,
+  borderRadius: 8,
+  alignItems: 'center',
+  marginTop: 10,
+},
 });
