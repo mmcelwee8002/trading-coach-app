@@ -7,6 +7,7 @@ export default function TradingScreen() {
   const [avgPrice, setAvgPrice] = useState(0);
 
   const [symbol, setSymbol] = useState('AAPL');
+  const [quantity, setQuantity] = useState('1');
   const [stockPrice, setStockPrice] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -88,33 +89,55 @@ const stockMap: Record<string, string> = {
    // fetchStockPrice();
   //}, []);
 
-  const handleBuy = () => {
-    if (stockPrice === null) return;
+ const handleBuy = () => {
+  if (stockPrice === null) return;
 
-    if (balance >= stockPrice) {
-      const totalCost = avgPrice * shares + stockPrice;
-      const newShares = shares + 1;
+  const qty = parseInt(quantity, 10);
 
-      setShares(newShares);
-      setAvgPrice(totalCost / newShares);
-      setBalance(balance - stockPrice);
+  if (isNaN(qty) || qty <= 0) {
+    setError('Enter a valid quantity.');
+    return;
+  }
+
+  const purchaseCost = stockPrice * qty;
+
+  if (balance >= purchaseCost) {
+    const totalCost = avgPrice * shares + purchaseCost;
+    const newShares = shares + qty;
+
+    setShares(newShares);
+    setAvgPrice(totalCost / newShares);
+    setBalance(balance - purchaseCost);
+    setError('');
+  } else {
+    setError('Not enough balance for this trade.');
+  }
+};
+
+ const handleSell = () => {
+  if (stockPrice === null) return;
+
+  const qty = parseInt(quantity, 10);
+
+  if (isNaN(qty) || qty <= 0) {
+    setError('Enter a valid quantity.');
+    return;
+  }
+
+  if (shares >= qty) {
+    const newShares = shares - qty;
+
+    setShares(newShares);
+    setBalance(balance + stockPrice * qty);
+    setError('');
+
+    if (newShares === 0) {
+      setAvgPrice(0);
     }
-  };
-
-  const handleSell = () => {
-    if (stockPrice === null) return;
-
-    if (shares > 0) {
-      const newShares = shares - 1;
-
-      setShares(newShares);
-      setBalance(balance + stockPrice);
-
-      if (newShares === 0) {
-        setAvgPrice(0);
-      }
-    }
-  };
+  } else {
+    setError('Not enough shares to sell.');
+  }
+};
 
   const profitLoss = stockPrice !== null ? (stockPrice - avgPrice) * shares : 0;
 
@@ -125,6 +148,9 @@ const stockMap: Record<string, string> = {
       <Text style={styles.balance}>Balance: ${balance.toFixed(2)}</Text>
       <Text style={styles.shares}>Shares: {shares}</Text>
       <Text style={styles.avg}>Avg Price: ${avgPrice.toFixed(2)}</Text>
+      <Text style={styles.avg}>
+  Position Value: ${(shares * (stockPrice ?? 0)).toFixed(2)}
+</Text>
 
       <Text
         style={[
@@ -141,6 +167,15 @@ const stockMap: Record<string, string> = {
   placeholder="Enter symbol"
   placeholderTextColor="#888"
   autoCapitalize="characters"
+/>
+
+<TextInput
+  style={styles.input}
+  value={quantity}
+  onChangeText={(text) => setQuantity(text)}
+  placeholder="Enter quantity"
+  placeholderTextColor="#888"
+  keyboardType="numeric"
 />
 
 <TouchableOpacity
