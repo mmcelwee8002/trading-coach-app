@@ -11,6 +11,15 @@ export default function TradingScreen() {
   const [stockPrice, setStockPrice] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+ const [tradeHistory, setTradeHistory] = useState<
+  {
+    type: 'BUY' | 'SELL';
+    symbol: string;
+    quantity: number;
+    price: number;
+    time: string;
+  }[]
+>([]);
 
   const apiKey = process.env.EXPO_PUBLIC_ALPHA_VANTAGE_API_KEY;
 
@@ -109,6 +118,17 @@ const stockMap: Record<string, string> = {
     setAvgPrice(totalCost / newShares);
     setBalance(balance - purchaseCost);
     setError('');
+    setQuantity('1');
+   setTradeHistory((prev) => [
+  {
+    type: 'BUY',
+    symbol,
+    quantity: qty,
+    price: stockPrice,
+    time: new Date().toLocaleTimeString(),
+  },
+  ...prev,
+]);
   } else {
     setError('Not enough balance for this trade.');
   }
@@ -130,6 +150,17 @@ const stockMap: Record<string, string> = {
     setShares(newShares);
     setBalance(balance + stockPrice * qty);
     setError('');
+    setQuantity('1');
+setTradeHistory((prev) => [
+  {
+    type: 'SELL',
+    symbol,
+    quantity: qty,
+    price: stockPrice,
+    time: new Date().toLocaleTimeString(),
+  },
+  ...prev,
+]);
 
     if (newShares === 0) {
       setAvgPrice(0);
@@ -141,6 +172,25 @@ const stockMap: Record<string, string> = {
 
   const profitLoss = stockPrice !== null ? (stockPrice - avgPrice) * shares : 0;
 
+const getBuyMessage = () => {
+  if (stockPrice === null) return 'Load a stock price first';
+  if (!quantity.trim()) return 'Enter quantity';
+  if (parseInt(quantity, 10) <= 0) return 'Enter a valid quantity';
+  if (balance < (stockPrice ?? 0) * parseInt(quantity, 10)) {
+    return 'Not enough balance';
+  }
+  return '';
+};
+
+const getSellMessage = () => {
+  if (stockPrice === null) return 'Load a stock price first';
+  if (!quantity.trim()) return 'Enter quantity';
+  if (parseInt(quantity, 10) <= 0) return 'Enter a valid quantity';
+  if (shares < parseInt(quantity, 10)) return 'Not enough shares';
+  return '';
+};
+
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Trading Simulator</Text>
@@ -151,7 +201,9 @@ const stockMap: Record<string, string> = {
       <Text style={styles.avg}>
   Position Value: ${(shares * (stockPrice ?? 0)).toFixed(2)}
 </Text>
-
+<Text style={styles.avg}>
+  Total Portfolio Value: ${(balance + shares * (stockPrice ?? 0)).toFixed(2)}
+</Text>
       <Text
         style={[
           styles.pnl,
@@ -203,16 +255,81 @@ const stockMap: Record<string, string> = {
       </View>
 
       <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.buyButton} onPress={handleBuy} disabled={stockPrice === null}>
-          <Text style={styles.buttonText}>Buy</Text>
-        </TouchableOpacity>
+      <View style={styles.buttonColumn}>
 
-        <TouchableOpacity style={styles.sellButton} onPress={handleSell} disabled={stockPrice === null}>
-          <Text style={styles.buttonText}>Sell</Text>
-        </TouchableOpacity>
-      </View>
+<TouchableOpacity
+  style={[
+    styles.buyButton,
+    (
+      stockPrice === null ||
+      !quantity.trim() ||
+      parseInt(quantity, 10) <= 0 ||
+      balance < (stockPrice ?? 0) * parseInt(quantity, 10)
+    ) && { opacity: 0.5 },
+  ]}
+  onPress={handleBuy}
+  disabled={
+    stockPrice === null ||
+    !quantity.trim() ||
+    parseInt(quantity, 10) <= 0 ||
+    balance < (stockPrice ?? 0) * parseInt(quantity, 10)
+  }
+>
+  <Text style={styles.buttonText}>Buy</Text>
+</TouchableOpacity>
+{getBuyMessage() !== '' && (
+  <Text style={styles.helperText}>{getBuyMessage()}</Text>
+)}
+</View>
+ </View>
+ <View style={styles.buttonColumn}>
+<TouchableOpacity
+
+  style={[
+    styles.sellButton,
+    (
+      stockPrice === null ||
+      !quantity.trim() ||
+      parseInt(quantity, 10) <= 0 ||
+      shares < parseInt(quantity, 10)
+    ) && { opacity: 0.5 },
+  ]}
+  onPress={handleSell}
+  disabled={
+    stockPrice === null ||
+    !quantity.trim() ||
+    parseInt(quantity, 10) <= 0 ||
+    shares < parseInt(quantity, 10)
+  }
+>
+  <Text style={styles.buttonText}>Sell</Text>
+</TouchableOpacity>
+
+{getSellMessage() !== '' && (
+  <Text style={styles.helperText}>{getSellMessage()}</Text>
+)}
+
+<Text style={styles.historyTitle}>Trade History</Text>
+
+{tradeHistory.length === 0 ? (
+  <Text style={styles.historyItem}>No trades yet.</Text>
+) : (
+  tradeHistory.map((trade, index) => (
+    <Text
+      key={index}
+      style={[
+        styles.historyItem,
+        { color: trade.type === 'BUY' ? '#22c55e' : '#ef4444' },
+      ]}
+    >
+      {trade.type} {trade.quantity} {trade.symbol} @ ${trade.price.toFixed(2)} ({trade.time})
+    </Text>
+  ))
+)}
+</View>
     </View>
   );
+  
 }
 
 const styles = StyleSheet.create({
@@ -320,4 +437,30 @@ button: {
   alignItems: 'center',
   marginTop: 10,
 },
+
+historyTitle: {
+  fontSize: 18,
+  fontWeight: '600',
+  marginTop: 20,
+  marginBottom: 10,
+  color: 'white',
+},
+
+historyItem: {
+  fontSize: 14,
+  color: 'white',
+  marginBottom: 6,
+},
+
+helperText: {
+  color: '#facc15',
+  fontSize: 12,
+  marginTop: 6,
+  textAlign: 'center',
+},
+buttonColumn: {
+  alignItems: 'center',
+  marginHorizontal: 10,
+},
+
 });
