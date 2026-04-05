@@ -1,5 +1,15 @@
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, TextInput, } from 'react-native';
-import { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+
+
+import { useState } from 'react';
 
 export default function TradingScreen() {
   const [balance, setBalance] = useState(10000);
@@ -13,11 +23,13 @@ export default function TradingScreen() {
   const [error, setError] = useState('');
  const [tradeHistory, setTradeHistory] = useState<
   {
+     id: string;
     type: 'BUY' | 'SELL';
     symbol: string;
     quantity: number;
     price: number;
-    time: string;
+    total: number;
+    timestamp: string;
   }[]
 >([]);
 
@@ -119,14 +131,20 @@ const stockMap: Record<string, string> = {
     setBalance(balance - purchaseCost);
     setError('');
     setQuantity('1');
-   setTradeHistory((prev) => [
+  setTradeHistory((prev) => [
   {
+    id: Date.now().toString(),
     type: 'BUY',
-    symbol,
+    symbol: symbol.toUpperCase(),
     quantity: qty,
     price: stockPrice,
-    time: new Date().toLocaleTimeString(),
+    total: stockPrice * qty,
+    timestamp: new Date().toLocaleTimeString([], {
+  hour: '2-digit',
+  minute: '2-digit',
+})
   },
+
   ...prev,
 ]);
   } else {
@@ -153,11 +171,16 @@ const stockMap: Record<string, string> = {
     setQuantity('1');
 setTradeHistory((prev) => [
   {
+    id: Date.now().toString(),
     type: 'SELL',
-    symbol,
+    symbol: symbol.toUpperCase(),
     quantity: qty,
     price: stockPrice,
-    time: new Date().toLocaleTimeString(),
+    total: stockPrice * qty,
+   timestamp: new Date().toLocaleTimeString([], {
+  hour: '2-digit',
+  minute: '2-digit',
+})
   },
   ...prev,
 ]);
@@ -192,7 +215,11 @@ const getSellMessage = () => {
 
 
   return (
-    <View style={styles.container}>
+  <ScrollView
+    style={{ flex: 1 }}
+    contentContainerStyle={styles.container}
+    keyboardShouldPersistTaps="handled"
+  >
       <Text style={styles.title}>Trading Simulator</Text>
 
       <Text style={styles.balance}>Balance: ${balance.toFixed(2)}</Text>
@@ -212,6 +239,8 @@ const getSellMessage = () => {
       >
         P/L: ${profitLoss.toFixed(2)}
       </Text>
+
+
 <TextInput
   style={[styles.input, {color: 'white'}]}
   value={symbol}
@@ -280,7 +309,7 @@ const getSellMessage = () => {
 {getBuyMessage() !== '' && (
   <Text style={styles.helperText}>{getBuyMessage()}</Text>
 )}
-</View>
+
  </View>
  <View style={styles.buttonColumn}>
 <TouchableOpacity
@@ -309,36 +338,43 @@ const getSellMessage = () => {
   <Text style={styles.helperText}>{getSellMessage()}</Text>
 )}
 
-<Text style={styles.historyTitle}>Trade History</Text>
 
-{tradeHistory.length === 0 ? (
-  <Text style={styles.historyItem}>No trades yet.</Text>
-) : (
-  tradeHistory.map((trade, index) => (
-    <Text
-      key={index}
-      style={[
-        styles.historyItem,
-        { color: trade.type === 'BUY' ? '#22c55e' : '#ef4444' },
-      ]}
-    >
-      {trade.type} {trade.quantity} {trade.symbol} @ ${trade.price.toFixed(2)} ({trade.time})
-    </Text>
-  ))
-)}
+
+
 </View>
-    </View>
+</View>
+
+<View style={styles.section}>
+  <Text style={styles.sectionTitle}>Trade History</Text>
+
+  {tradeHistory.length === 0 ? (
+    <Text style={styles.emptyText}>No trades yet.</Text>
+  ) : (
+    tradeHistory.map((trade) => (
+      <View key={trade.id} style={styles.tradeCard}>
+        <Text style={styles.tradeType}>
+          {trade.type} {trade.symbol}
+        </Text>
+        <Text>Quantity: {trade.quantity}</Text>
+        <Text>Price: ${trade.price.toFixed(2)}</Text>
+        <Text>Total: ${trade.total.toFixed(2)}</Text>
+        <Text style={styles.tradeTime}>{trade.timestamp}</Text>
+      </View>
+    ))
+  )}
+</View>
+
+    </ScrollView>
   );
   
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#0b0f19',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
+  flexGrow: 1,
+  padding: 20,
+  backgroundColor: '#000',
+
   },
   title: {
     color: 'white',
@@ -400,22 +436,32 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '600',
   },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 12,
+buttonRow: {
+  flexDirection: 'row',
+  width: '100%',
+  marginTop: 16,
+ },
+
+buttonColumn: {
+  flex: 1,
   },
-  buyButton: {
-    backgroundColor: '#22c55e',
-    paddingVertical: 14,
-    paddingHorizontal: 40,
-    borderRadius: 10,
+
+buyButton: {
+  backgroundColor: '#22c55e',
+  paddingVertical: 14,
+  borderRadius: 10,
+  alignItems: 'center',
+  marginRight: 6,
   },
-  sellButton: {
-    backgroundColor: '#ef4444',
-    paddingVertical: 14,
-    paddingHorizontal: 40,
-    borderRadius: 10,
-  },
+
+sellButton: {
+  backgroundColor: '#ef4444',
+  paddingVertical: 14,
+  borderRadius: 10,
+  alignItems: 'center',
+  marginLeft: 6,
+},
+
   buttonText: {
     color: 'white',
     fontSize: 16,
@@ -458,9 +504,46 @@ helperText: {
   marginTop: 6,
   textAlign: 'center',
 },
-buttonColumn: {
-  alignItems: 'center',
-  marginHorizontal: 10,
+
+
+
+section: {
+  marginTop: 24,
+  width: '100%',
+},
+
+sectionTitle: {
+  fontSize: 20,
+  fontWeight: 'bold',
+  marginBottom: 12,
+  color: 'white',
+},
+
+emptyText: {
+  fontSize: 16,
+  color: '#888',
+},
+
+tradeCard: {
+  backgroundColor: '#1c1c1e',
+  padding: 12,
+  borderRadius: 10,
+  marginBottom: 10,
+  borderWidth: 1,
+  borderColor: '#333',
+},
+
+tradeType: {
+  fontSize: 16,
+  fontWeight: 'bold',
+  marginBottom: 4,
+  color: 'white',
+},
+
+tradeTime: {
+  marginTop: 6,
+  fontSize: 12,
+  color: '#888',
 },
 
 });
