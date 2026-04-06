@@ -17,7 +17,7 @@ export default function TradingScreen() {
   const [avgPrice, setAvgPrice] = useState(0);
 
   const [symbol, setSymbol] = useState('AAPL');
-  const [quantity, setQuantity] = useState('1');
+  const [quantity, setQuantity] = useState(1);
   const [stockPrice, setStockPrice] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -113,49 +113,50 @@ const stockMap: Record<string, string> = {
  const handleBuy = () => {
   if (stockPrice === null) return;
 
-  const qty = parseInt(quantity, 10);
+  const qty = quantity;
 
-  if (isNaN(qty) || qty <= 0) {
+  if (!qty || qty <= 0) {
     setError('Enter a valid quantity.');
     return;
   }
 
   const purchaseCost = stockPrice * qty;
 
-  if (balance >= purchaseCost) {
-    const totalCost = avgPrice * shares + purchaseCost;
-    const newShares = shares + qty;
-
-    setShares(newShares);
-    setAvgPrice(totalCost / newShares);
-    setBalance(balance - purchaseCost);
-    setError('');
-    setQuantity('1');
-  setTradeHistory((prev) => [
-  {
-    id: Date.now().toString(),
-    type: 'BUY',
-    symbol: symbol.toUpperCase(),
-    quantity: qty,
-    price: stockPrice,
-    total: stockPrice * qty,
-    timestamp: new Date().toLocaleTimeString([], {
-  hour: '2-digit',
-  minute: '2-digit',
-})
-  },
-
-  ...prev,
-]);
-  } else {
+  if (balance < purchaseCost) {
     setError('Not enough balance for this trade.');
+    return;
   }
+
+  const totalCost = avgPrice * shares + purchaseCost;
+  const newShares = shares + qty;
+
+  setShares(newShares);
+  setAvgPrice(totalCost / newShares);
+  setBalance(balance - purchaseCost);
+  setError('');
+  setQuantity(1);
+
+  setTradeHistory((prev) => [
+    {
+      id: Date.now().toString(),
+      type: 'BUY',
+      symbol: symbol.toUpperCase(),
+      quantity: qty,
+      price: stockPrice,
+      total: stockPrice * qty,
+      timestamp: new Date().toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    },
+    ...prev,
+  ]);
 };
 
  const handleSell = () => {
   if (stockPrice === null) return;
 
-  const qty = parseInt(quantity, 10);
+  const qty = quantity;
 
   if (isNaN(qty) || qty <= 0) {
     setError('Enter a valid quantity.');
@@ -168,7 +169,7 @@ const stockMap: Record<string, string> = {
     setShares(newShares);
     setBalance(balance + stockPrice * qty);
     setError('');
-    setQuantity('1');
+    setQuantity(1);
 setTradeHistory((prev) => [
   {
     id: Date.now().toString(),
@@ -197,9 +198,9 @@ setTradeHistory((prev) => [
 
 const getBuyMessage = () => {
   if (stockPrice === null) return 'Load a stock price first';
-  if (!quantity.trim()) return 'Enter quantity';
-  if (parseInt(quantity, 10) <= 0) return 'Enter a valid quantity';
-  if (balance < (stockPrice ?? 0) * parseInt(quantity, 10)) {
+  if (!quantity || quantity <= 0) return 'Enter quantity';
+  if (quantity <= 0) return 'Enter a valid quantity';
+  if (balance < (stockPrice ?? 0) * quantity) {
     return 'Not enough balance';
   }
   return '';
@@ -207,9 +208,9 @@ const getBuyMessage = () => {
 
 const getSellMessage = () => {
   if (stockPrice === null) return 'Load a stock price first';
-  if (!quantity.trim()) return 'Enter quantity';
-  if (parseInt(quantity, 10) <= 0) return 'Enter a valid quantity';
-  if (shares < parseInt(quantity, 10)) return 'Not enough shares';
+  if (!quantity || quantity <= 0) return 'Enter quantity';
+if (!quantity || quantity <= 0) return 'Enter quantity';
+if (shares < quantity) return 'Not enough shares';
   return '';
 };
 
@@ -220,44 +221,51 @@ const getSellMessage = () => {
     contentContainerStyle={styles.container}
     keyboardShouldPersistTaps="handled"
   >
-      <Text style={styles.title}>Trading Simulator</Text>
+    <Text style={styles.title}>Trading Simulator</Text>
 
-      <Text style={styles.balance}>Balance: ${balance.toFixed(2)}</Text>
-      <Text style={styles.shares}>Shares: {shares}</Text>
-      <Text style={styles.avg}>Avg Price: ${avgPrice.toFixed(2)}</Text>
-      <Text style={styles.avg}>
-  Position Value: ${(shares * (stockPrice ?? 0)).toFixed(2)}
-</Text>
-<Text style={styles.avg}>
-  Total Portfolio Value: ${(balance + shares * (stockPrice ?? 0)).toFixed(2)}
-</Text>
-      <Text
-        style={[
-          styles.pnl,
-          { color: profitLoss >= 0 ? '#22c55e' : '#ef4444' },
-        ]}
-      >
-        P/L: ${profitLoss.toFixed(2)}
-      </Text>
+    <View style={styles.accountCard}>
+  <Text style={styles.balance}>Balance: ${balance.toFixed(2)}</Text>
+  <Text style={styles.shares}>Shares: {shares}</Text>
+  <Text style={styles.avg}>Avg Price: ${avgPrice.toFixed(2)}</Text>
+
+  <Text style={styles.avg}>
+    Position Value: ${(shares * (stockPrice ?? 0)).toFixed(2)}
+  </Text>
+
+  <Text style={styles.avg}>
+    Total Portfolio Value: ${(balance + shares * (stockPrice ?? 0)).toFixed(2)}
+  </Text>
+
+  <Text
+    style={[
+      styles.pnl,
+      { color: profitLoss >= 0 ? '#22c55e' : '#ef4444' },
+    ]}
+  >
+    P/L: ${profitLoss.toFixed(2)}
+  </Text>
+</View>
+
 
 
 <TextInput
-  style={[styles.input, {color: 'white'}]}
+  style={styles.input}
   value={symbol}
-  onChangeText={setSymbol}
-  placeholder="Enter symbol"
+  onChangeText={(text) => setSymbol(text.toUpperCase())}
+  placeholder="Enter stock symbol"
   placeholderTextColor="#888"
   autoCapitalize="characters"
 />
 
 <TextInput
   style={styles.input}
-  value={quantity}
-  onChangeText={(text) => setQuantity(text)}
+  value={quantity.toString()}
+  onChangeText={(text) => setQuantity(Number(text) || 0)}
   placeholder="Enter quantity"
   placeholderTextColor="#888"
   keyboardType="numeric"
 />
+
 
 <TouchableOpacity
   style={styles.button}
@@ -291,17 +299,17 @@ const getSellMessage = () => {
     styles.buyButton,
     (
       stockPrice === null ||
-      !quantity.trim() ||
-      parseInt(quantity, 10) <= 0 ||
-      balance < (stockPrice ?? 0) * parseInt(quantity, 10)
+      
+      quantity <= 0 ||
+      balance < (stockPrice ?? 0) * quantity
     ) && { opacity: 0.5 },
   ]}
   onPress={handleBuy}
   disabled={
     stockPrice === null ||
-    !quantity.trim() ||
-    parseInt(quantity, 10) <= 0 ||
-    balance < (stockPrice ?? 0) * parseInt(quantity, 10)
+    
+    quantity <= 0 ||
+    balance < (stockPrice ?? 0) * quantity
   }
 >
   <Text style={styles.buttonText}>Buy</Text>
@@ -318,17 +326,17 @@ const getSellMessage = () => {
     styles.sellButton,
     (
       stockPrice === null ||
-      !quantity.trim() ||
-      parseInt(quantity, 10) <= 0 ||
-      shares < parseInt(quantity, 10)
+      
+      quantity <= 0 ||
+      shares < quantity
     ) && { opacity: 0.5 },
   ]}
   onPress={handleSell}
   disabled={
     stockPrice === null ||
-    !quantity.trim() ||
-    parseInt(quantity, 10) <= 0 ||
-    shares < parseInt(quantity, 10)
+    
+    quantity <= 0 ||
+    shares < quantity
   }
 >
   <Text style={styles.buttonText}>Sell</Text>
@@ -352,9 +360,15 @@ const getSellMessage = () => {
   ) : (
     tradeHistory.map((trade) => (
       <View key={trade.id} style={styles.tradeCard}>
-        <Text style={styles.tradeType}>
-          {trade.type} {trade.symbol}
-        </Text>
+
+<Text
+  style={[
+    styles.tradeType,
+    { color: trade.type === 'BUY' ? '#22c55e' : '#ef4444' },
+  ]}
+>
+  {trade.type} {trade.symbol}
+</Text>
         <Text>Quantity: {trade.quantity}</Text>
         <Text>Price: ${trade.price.toFixed(2)}</Text>
         <Text>Total: ${trade.total.toFixed(2)}</Text>
@@ -484,17 +498,27 @@ button: {
   marginTop: 10,
 },
 
+historyCard: {
+  backgroundColor: '#111827',
+  padding: 12,
+  borderRadius: 10,
+  marginBottom: 10,
+  borderWidth: 1,
+  borderColor: '#374151',
+},
+
 historyTitle: {
   fontSize: 18,
   fontWeight: '600',
   marginTop: 20,
   marginBottom: 10,
-  color: 'white',
+  color: '#ffffff',
+
 },
 
 historyItem: {
   fontSize: 14,
-  color: 'white',
+   color: '#d1d5db',
   marginBottom: 6,
 },
 
@@ -504,7 +528,6 @@ helperText: {
   marginTop: 6,
   textAlign: 'center',
 },
-
 
 
 section: {
@@ -521,29 +544,36 @@ sectionTitle: {
 
 emptyText: {
   fontSize: 16,
-  color: '#888',
+  color: '#9ca3af',
 },
 
 tradeCard: {
-  backgroundColor: '#1c1c1e',
+  backgroundColor: '#111827',
   padding: 12,
   borderRadius: 10,
   marginBottom: 10,
   borderWidth: 1,
-  borderColor: '#333',
+  borderColor: '#374151',
 },
 
 tradeType: {
   fontSize: 16,
   fontWeight: 'bold',
-  marginBottom: 4,
-  color: 'white',
-},
+  marginBottom: 6,
+  },
 
 tradeTime: {
   marginTop: 6,
   fontSize: 12,
   color: '#888',
 },
+
+accountCard: {
+  backgroundColor: '#f3f4f6',
+  padding: 16,
+  borderRadius: 12,
+  marginBottom: 16,
+},
+
 
 });
